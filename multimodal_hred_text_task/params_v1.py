@@ -1,6 +1,7 @@
 import tensorflow as tf
 from tensorflow.python.ops import rnn,rnn_cell
 import os
+
 def get_params(data_dir, dir):
     param={}
     dir= str(dir)

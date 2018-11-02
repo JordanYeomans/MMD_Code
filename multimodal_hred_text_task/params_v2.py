@@ -1,7 +1,8 @@
 import tensorflow as tf
 from tensorflow.python.ops import rnn,rnn_cell
 import os
-def get_params(data_dir, dir):
+
+def get_params(data_dir, dir, image_annoy_dir):
     param={}
     dir= str(dir)
     param['train_dir_loc']=data_dir+"/train/"
@@ -10,7 +11,7 @@ def get_params(data_dir, dir):
     param['dump_dir_loc']=dir+"/dump/"
     param['test_output_dir']=dir+"/test_output/"
     param['vocab_file']=dir+"/vocab.pkl"
-    param['image_annoy_dir']='../image_annoy_index/'
+    param['image_annoy_dir']= image_annoy_dir
     param['train_data_file']=dir+"/dump/train_data_file.pkl"
     param['valid_data_file']=dir+"/dump/valid_data_file.pkl"
     param['test_data_file']=dir+"/dump/test_data_file.pkl"
