@@ -18,7 +18,7 @@ annoyIndex = None
 
 def load_image_representation(image_annoy_dir):
     annoyIndex = AnnoyIndex(4096, metric='euclidean')
-    print(image_annoy_dir)
+
     image_annoy_dir = '/media/jordanyeomans/Jordan Yeomans/VQA/image_annoy_index/annoy.ann'
     annoyIndex.load(image_annoy_dir)
     # annoyPkl = pkl.load(open(image_annoy_dir + '/ImageUrlToIndex.pkl'))

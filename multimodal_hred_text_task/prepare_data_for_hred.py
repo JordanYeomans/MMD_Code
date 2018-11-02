@@ -47,7 +47,7 @@ class PrepareData():
 
     def prepare_data(self, input, vocab_file, vocab_stats_file, output, dialogue_pkl_file, isTrain, isTest=False, test_state=None):
         if not os.path.isdir(input) or len(os.listdir(input)) == 0:
-            print(input)
+
             raise Exception("Input file not found")
         if not self.task_type == "text" and not self.task_type == "image":
             raise Exception("task_type has to be either text or image, found " + self.task_type)
@@ -208,7 +208,7 @@ class PrepareData():
 
                 nlg_words = nltk.word_tokenize(nlg)
 
-                nlg_words = [x.encode('utf-8') for x in nlg_words]
+                # nlg_words = [x.encode('utf-8') for x in nlg_words]
 
                 if create_vocab:
                     self.word_counter.update(nlg_words)
@@ -447,8 +447,6 @@ class PrepareData():
         # binarized_corpus = [binarized_corpus_text_context,  binarized_corpus_image_context, binarized_corpus_target]
         self.safe_pickle(binarized_corpus, dialogue_pkl_file)
         if not os.path.isfile(self.vocab_file):
-
-            print(self.vocab_dict.items())
 
             self.safe_pickle([(word, word_id, freqs[word_id], df[word_id]) for word, word_id in self.vocab_dict.items()],self.vocab_stats_file)
             inverted_vocab_dict = {word_id: word for word, word_id in self.vocab_dict.items()}

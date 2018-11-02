@@ -97,6 +97,7 @@ def run_training(param):
         else:
             feed_dict = feeding_dict(model, train_batch_text, train_batch_image, batch_text_target, batch_decoder_input,
                                      batch_text_weight, True)
+
         loss, dec_op, _ = sess.run([losses, logits, train_op], feed_dict=feed_dict)
         '''
         if step % param['show_grad_freq'] == 0:
@@ -115,8 +116,7 @@ def run_training(param):
         valid_batch_text, valid_batch_image, batch_text_target, batch_decoder_input, batch_text_weight = get_batch_data(
             param['max_len'], param['max_images'], param['image_rep_size'], param['max_utter'], param['batch_size'],
             batch_dict)
-        feed_dict = feeding_dict(model, valid_batch_text, valid_batch_image, batch_text_target, batch_decoder_input,
-                                 batch_text_weight, True)
+        feed_dict = feeding_dict(model, valid_batch_text, valid_batch_image, batch_text_target, batch_decoder_input, batch_text_weight, True)
         loss, dec_op = sess.run([losses, logits], feed_dict)
         return loss, dec_op
 
@@ -228,7 +228,6 @@ def run_training(param):
         return file
 
     train_data = load_pkl(param['train_data_file'])
-    print(train_data)
     print(param['image_annoy_dir'])
     print('Train dialogue dataset loaded')
     sys.stdout.flush()
@@ -265,6 +264,9 @@ def run_training(param):
         saver = tf.train.Saver()
         init = tf.initialize_all_variables()
         sess = tf.Session()
+
+        summary_writer = tf.summary.FileWriter('./tensorboard/')
+
         old_model_file = None
         if len(os.listdir(param['model_path'])) > 0:
             old_model_file = None
@@ -297,13 +299,19 @@ def run_training(param):
             random.shuffle(train_data)
             train_loss = 0
             for i in range(n_batches):
+
                 overall_step_count = overall_step_count + 1
                 train_batch_dict = train_data[i * param['batch_size']:(i + 1) * param['batch_size']]
                 sum_batch_loss = perform_training(model, train_batch_dict, overall_step_count)
                 avg_batch_loss = sum_batch_loss / float(param['batch_size'])
+                print('Average_batch_loss = {}, {} out of {}'.format(avg_batch_loss, i, n_batches))
+
                 if overall_step_count % param['print_train_freq'] == 0:
                     print('Epoch  %d Step %d train loss (avg over batch) =%.6f' % (epoch, i, avg_batch_loss))
+                    # tb_loss = tf.summary.scalar("training_accuracy", avg_batch_loss)
+                    # sess.run(summary_writer.add_summary(tb_loss, i))
                     sys.stdout.flush()
+
                 train_loss = train_loss + sum_batch_loss
                 avg_train_loss = float(train_loss) / float(i + 1)
                 if overall_step_count > 0 and overall_step_count % param['valid_freq'] == 0:
@@ -331,11 +339,11 @@ def run_training(param):
 
 
 def main():
-    data_dir = '/media/jordanyeomans/Jordan Yeomans/VQA/dataset/v2'
+    data_dir = '/media/jordanyeomans/Jordan Yeomans/VQA/dataset/v2_small'
     dump_dir = 'Target_Model'
     image_annoy_dir = '/media/jordanyeomans/Jordan Yeomans/VQA/image_annoy_index'
     param = get_params(data_dir, dump_dir, image_annoy_dir)
-    print(param)
+
     if os.path.exists(param['train_data_file']) and os.path.exists(param['valid_data_file']) and os.path.exists(param['test_data_file']):
         print('dictionary already exists')
         sys.stdout.flush()

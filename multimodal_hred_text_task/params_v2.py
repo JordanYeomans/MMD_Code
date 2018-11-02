@@ -37,9 +37,9 @@ def get_params(data_dir, dir, image_annoy_dir):
     param['max_images']=1
     param['num_images_per_utterance']=5
     param['max_utter']=2*param['num_images_per_utterance']
-    param['print_train_freq']=1000
+    param['print_train_freq'] = 1000
     param['show_grad_freq']=2000
-    param['valid_freq']=10000
+    param['valid_freq']=10
     param['max_gradient_norm']=0.1
     param['train_loss_incremenet_tolerance']=0.01
     return param

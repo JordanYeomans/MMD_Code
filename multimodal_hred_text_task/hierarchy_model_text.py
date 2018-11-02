@@ -187,7 +187,6 @@ class Hierarchical_seq_model_text():
             for i, enc_img_input in enumerate(enc_img_inputs):
                 # enc_img_input is of dimension (max_images * batch_size * image_rep_size) # Confirmed JY
                 # enc_img_input is a list of tensors with length = max_images. Each tensor has shape [batch_size, image_rep_size] - Confirmed JY
-                print('enc_img_input = {}'.format(enc_img_input))
 
                 # enc_img_states_i should end up being dimension (max_images * batch_size * image_embedding_size)
                 enc_img_states_i = []
@@ -207,7 +206,6 @@ class Hierarchical_seq_model_text():
                         enc_img_state = self.activation(enc_img_state)
 
                     enc_img_states_i.append(enc_img_state)
-                    print('enc_img_states_i = {}'.format(enc_img_states_i))
 
                 # enc_img_states is of dimension (max_utter * max_images * batch_size * image_embedding_size)
                 enc_img_states.append(enc_img_states_i)
@@ -215,7 +213,7 @@ class Hierarchical_seq_model_text():
         concat_enc_img_states = []
 
         # enc_img_states[i] is of dimension (max_images * batch_size * image_embedding_size)
-        print(len(enc_img_states))
+
         for i in range(0, len(enc_img_states)):
 
             # concat_enc_img_states the max_utter length list of tensors batch_size * (max_images * images_embedding_size)
