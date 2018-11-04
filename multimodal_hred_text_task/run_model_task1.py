@@ -12,6 +12,7 @@ from params_v2 import *
 import nltk
 from read_data_task1 import *
 from hierarchy_model_text import *
+import logging
 
 
 def feeding_dict(model, inputs_text, inputs_image, target_text, decoder_text_inputs, text_weights, feed_prev):
@@ -135,25 +136,41 @@ def run_training(param):
                                                                                                  batch_target_word_ids,
                                                                                                  vocab)
         sys.stdout.flush()
-        print('shape of prob_true_words ', prob_true_words.shape)
-        sys.stdout.flush()
-        print_pred_true_op(batch_predicted_sentence, prob_predicted_words, prob_true_words, batch_text_targets, step,
-                           epoch, batch_valid_loss)
+
+        # Print Validation Results to Consol
+        # print_pred_true_op(batch_predicted_sentence, prob_predicted_words, prob_true_words, batch_text_targets, step, epoch, batch_valid_loss)
+
+        # Record Validation Sentences to Log File
+        record_val_results(batch_predicted_sentence, batch_text_targets, step, epoch, batch_valid_loss)
+
         return sum_batch_loss
 
     def evaluate(model, epoch, step, valid_data, valid_text_targets, vocab):
-        print('Validation started')
-        sys.stdout.flush()
+        print('Validation Started')
+
+        # Set validation log filename
+        logging.basicConfig(filename='./Target_Model/log/Val_Results_Epoch_{}_Step_{}.log'.format(epoch, step),
+                            level=logging.INFO)
+
         valid_loss = 0
         batch_predicted_sentence = []
         n_batches = int(math.ceil(float(len(valid_data)) / float(param['batch_size'])))
+
         for i in range(n_batches):
+            if i % 10 == 0:
+                print('Validating: Epoch {}, Batch {}'.format(epoch, i))
+
             batch_dict = valid_data[i * param['batch_size']:(i + 1) * param['batch_size']]
             batch_target_word_ids = valid_text_targets[i * param['batch_size']:(i + 1) * param['batch_size']]
             batch_target_sentences = map_id_to_word(batch_target_word_ids, vocab)
-            sum_batch_loss = perform_evaluation(model, batch_dict, batch_target_word_ids, batch_target_sentences, epoch,
-                                                step, vocab)
+            sum_batch_loss = perform_evaluation(model, batch_dict, batch_target_word_ids, batch_target_sentences, epoch, step, vocab)
             valid_loss = valid_loss + sum_batch_loss
+
+        # Remove the log handlers
+        log = logging.getLogger()
+        for hdlr in log.handlers[:]:
+            log.removeHandler(hdlr)
+
         return float(valid_loss) / float(len(valid_data))
 
     def print_pred_true_op(pred_op, prob_pred, prob_true, true_op, step, epoch, batch_valid_loss):
@@ -181,6 +198,16 @@ def run_training(param):
             sys.stdout.flush()
             print("loss for the pair of true and predicted sentences", str(batch_valid_loss[i]))
             print("\n")
+
+    def record_val_results(pred_op, true_op, step, epoch, batch_valid_loss):
+
+        # Add true and predicted validation sentences to log file
+        for i in range(0, len(true_op), 100):
+            logging.info('Step {}, Epoch {}'.format(step, epoch))
+            logging.info('True: {}'.format(true_op[i]))
+            logging.info('Pred: {}'.format(pred_op[i]))
+            logging.info('Pair Loss = {}'.format(batch_valid_loss[i]))
+            logging.info('----------------------------------------------------------')
 
     def map_id_to_word(word_indices, vocab):
         sentence_list = []
@@ -265,9 +292,15 @@ def run_training(param):
         init = tf.initialize_all_variables()
         sess = tf.Session()
 
-        summary_writer = tf.summary.FileWriter('./tensorboard/')
+        tb_placeholder = tf.placeholder(tf.float16, shape=None)
+
+        tb_training_loss = tf.summary.scalar('Training Loss', tb_placeholder)
+        tb_validation_loss = tf.summary.scalar('Validation Loss', tb_placeholder)
+
+        tb_writer = tf.summary.FileWriter('./tensorboard/')
 
         old_model_file = None
+
         if len(os.listdir(param['model_path'])) > 0:
             old_model_file = None
             try:
@@ -291,45 +324,60 @@ def run_training(param):
         print('printing all', len(all_var), ' TF variables:')
         for var in all_var:
             print(var.name, var.get_shape())
-        print('training started')
+
+        print('Training Started')
         sys.stdout.flush()
         last_overall_avg_train_loss = None
         overall_step_count = 0
+
         for epoch in range(param['max_epochs']):
             random.shuffle(train_data)
             train_loss = 0
             for i in range(n_batches):
 
+                # Print Update
+                if i % 10 == 0:
+                    print('Training: Epoch {}, Batch {}'.format(epoch, i))
+
                 overall_step_count = overall_step_count + 1
                 train_batch_dict = train_data[i * param['batch_size']:(i + 1) * param['batch_size']]
                 sum_batch_loss = perform_training(model, train_batch_dict, overall_step_count)
                 avg_batch_loss = sum_batch_loss / float(param['batch_size'])
-                print('Average_batch_loss = {}, {} out of {}'.format(avg_batch_loss, i, n_batches))
-
-                if overall_step_count % param['print_train_freq'] == 0:
-                    print('Epoch  %d Step %d train loss (avg over batch) =%.6f' % (epoch, i, avg_batch_loss))
-                    # tb_loss = tf.summary.scalar("training_accuracy", avg_batch_loss)
-                    # sess.run(summary_writer.add_summary(tb_loss, i))
-                    sys.stdout.flush()
+                # print('Average_batch_loss = {}, {} out of {}'.format(avg_batch_loss, i, n_batches))
 
                 train_loss = train_loss + sum_batch_loss
-                avg_train_loss = float(train_loss) / float(i + 1)
+
+                # Store average training loss in tensorboard
+                if overall_step_count % param['tb_store_loss_freq'] == 0:
+                    avg_train_loss = float(train_loss) / float(i + 1)
+
+                    print('Avg Train Loss = {}'.format(avg_train_loss))
+                    _loss = sess.run(tb_training_loss, feed_dict={tb_placeholder: avg_train_loss})
+                    tb_writer.add_summary(_loss, overall_step_count)
+
+                # Run Model Against Validation Data
                 if overall_step_count > 0 and overall_step_count % param['valid_freq'] == 0:
+                    # Calculate Average Validation Loss
                     overall_avg_valid_loss = evaluate(model, epoch, i, valid_data, valid_text_targets, vocab)
-                    print('Epoch %d Step %d ... overall avg valid loss= %.6f' % (epoch, i, overall_avg_valid_loss))
-                    sys.stdout.flush()
+
+                    # Add to Tensorboard
+                    tb_writer.add_summary(summary=sess.run(fetches=tb_validation_loss,
+                                                           feed_dict={tb_placeholder: overall_avg_valid_loss}),
+                                          global_step=overall_step_count)
+
+                    # Save if validation loss improves
                     if best_valid_loss > overall_avg_valid_loss:
                         saver.save(sess, model_file)
                         best_valid_loss = overall_avg_valid_loss
-                    else:
-                        continue
+
             overall_avg_train_loss = train_loss / float(len(train_data))
-            print('epoch ', epoch, ' of training is completed ... overall avg. train loss ', overall_avg_train_loss)
+
             if last_overall_avg_train_loss is not None and overall_avg_train_loss > last_overall_avg_train_loss:
                 diff = overall_avg_train_loss - last_overall_avg_train_loss
                 if diff > param['train_loss_incremenet_tolerance']:
                     print('WARNING: training loss (%.6f) has increased by %.6f since last epoch, has exceed tolerance of %f ' % (overall_avg_train_loss, diff, param['train_loss_incremenet_tolerance']))
                 else:
+
                     print('WARNING: training loss (%.6f) has increased by %.6f since last epoch, but still within tolerance of %f ' % (overall_avg_train_loss, diff, param['train_loss_incremenet_tolerance']))
             last_overall_avg_train_loss = overall_avg_train_loss
             sys.stdout.flush()
@@ -339,7 +387,7 @@ def run_training(param):
 
 
 def main():
-    data_dir = '/media/jordanyeomans/Jordan Yeomans/VQA/dataset/v2_small'
+    data_dir = '/media/jordanyeomans/Jordan Yeomans/VQA/dataset/v2'
     dump_dir = 'Target_Model'
     image_annoy_dir = '/media/jordanyeomans/Jordan Yeomans/VQA/image_annoy_index'
     param = get_params(data_dir, dump_dir, image_annoy_dir)

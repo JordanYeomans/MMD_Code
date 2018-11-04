@@ -7,6 +7,7 @@ import logging
 import nltk
 # nltk.download()
 from nltk import word_tokenize
+import numpy as np
 
 import collections
 from collections import Counter
@@ -100,11 +101,14 @@ class PrepareData():
 
         num_files = len(os.listdir(json_dir))
         file_num = 0
+
         for file in os.listdir(json_dir):
+            file_num += 1
             if file.endswith('.json'):
                 self.read_jsonfile(os.path.join(json_dir, file), create_vocab, is_test, test_state)
-            print(file_num/num_files)
-            file_num += 1
+
+            if file_num % 1000 == 0:
+                print('Reading JSON Files {}%'.format(np.round(file_num/num_files,5)))
 
     def pad_or_clip_dialogue(self, dialogue_instance):
         dialogue_instance = self.rollout_dialogue(dialogue_instance)
